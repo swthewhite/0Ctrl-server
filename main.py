@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from datetime import datetime
 from motor.motor_asyncio import AsyncIOMotorClient
+from bson import ObjectId
 import uvicorn
 
 app = FastAPI()
@@ -23,6 +24,11 @@ class Sengsing(BaseModel):
     num1: int
     num2: str
 
+def fix_id(obj):
+    if "_id" in obj:
+        obj["_id"] = str(obj["_id"])
+    return obj
+
 @app.post("/command/")
 async def add_command(command: Command):
     if await db.commandTable.find_one({"time": command.time}):
@@ -42,18 +48,20 @@ async def add_sengsing(sensing: Sengsing):
 @app.get("/commands/")
 async def get_commands():
     commands = await db.commandTable.find().to_list(1000)
+    commands = [fix_id(command) for command in commands]
     return commands
 
 @app.get("/sengsings/")
 async def get_sengsings():
     sengsings = await db.sensingTable.find().to_list(1000)
+    sengsings = [fix_id(sensing) for sensing in sengsings]
     return sengsings
 
 @app.get("/command/{time}")
 async def get_command_by_time(time: datetime):
     command = await db.commandTable.find_one({"time": time})
     if command:
-        return command
+        return fix_id(command)
     else:
         raise HTTPException(status_code=404, detail="Command not found")
 
@@ -61,6 +69,6 @@ async def get_command_by_time(time: datetime):
 async def get_sengsing_by_time(time: datetime):
     sensing = await db.sensingTable.find_one({"time": time})
     if sensing:
-        return sensing
+        return fix_id(sensing)
     else:
         raise HTTPException(status_code=404, detail="Sensing not found")
