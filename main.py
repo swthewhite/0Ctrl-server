@@ -38,3 +38,29 @@ async def add_sengsing(sensing: Sengsing):
     sensing_dict = sensing.dict(by_alias=True)
     await db.sensingTable.insert_one(sensing_dict)
     return {"message": "Sensing added successfully"}
+
+@app.get("/commands/")
+async def get_commands():
+    commands = await db.commandTable.find().to_list(1000)
+    return commands
+
+@app.get("/sengsings/")
+async def get_sengsings():
+    sengsings = await db.sensingTable.find().to_list(1000)
+    return sengsings
+
+@app.get("/command/{time}")
+async def get_command_by_time(time: datetime):
+    command = await db.commandTable.find_one({"time": time})
+    if command:
+        return command
+    else:
+        raise HTTPException(status_code=404, detail="Command not found")
+
+@app.get("/sengsing/{time}")
+async def get_sengsing_by_time(time: datetime):
+    sensing = await db.sensingTable.find_one({"time": time})
+    if sensing:
+        return sensing
+    else:
+        raise HTTPException(status_code=404, detail="Sensing not found")
