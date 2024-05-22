@@ -11,64 +11,66 @@ app = FastAPI()
 client = AsyncIOMotorClient('mongodb://localhost:27017')
 db = client.zero_ctrl
 
-class Command(BaseModel):
-    time: datetime = Field(default_factory=datetime.now, alias="time")
-    arg_string: int
-    cmd_string: str
+class Move(BaseModel):
+    direction: str
+    speed: int
     is_finish: int
 
-class Sengsing(BaseModel):
+class ToggleMove(BaseModel):
+    mode: str
+
+class Adjustments(BaseModel):
+    speed_gain: float
+    steering_gain: float
+    steering_bias: float
+
+class Gripper(BaseModel):
+    action: str
+
+class MoveXY(BaseModel):
+    x: int
+    y: int
+
+class CameraMove(BaseModel):
+    direction: str
+
+class TargetArea(BaseModel):
+    color: str
+
+class AGVCommand(BaseModel):
     time: datetime = Field(default_factory=datetime.now, alias="time")
-    is_finish: int
-    manual_mode: str
-    num1: int
-    num2: str
+    upload: str
+    move: Move
+    toggle_move: ToggleMove
+    adjustments: Adjustments
+    gripper: Gripper
+    move_xy: MoveXY
+    camera_move: CameraMove
+    target_area: TargetArea
 
 def fix_id(obj):
     if "_id" in obj:
         obj["_id"] = str(obj["_id"])
     return obj
 
-@app.post("/command/")
-async def add_command(command: Command):
-    if await db.commandTable.find_one({"time": command.time}):
+@app.post("/agvcommand/")
+async def add_agv_command(command: AGVCommand):
+    if await db.agvCommandTable.find_one({"time": command.time}):
         raise HTTPException(status_code=400, detail="Command already exists")
     command_dict = command.dict(by_alias=True)
-    await db.commandTable.insert_one(command_dict)
-    return {"message": "Command added successfully"}
+    await db.agvCommandTable.insert_one(command_dict)
+    return {"message": "AGV Command added successfully"}
 
-@app.post("/sengsing/")
-async def add_sengsing(sensing: Sengsing):
-    if await db.sensingTable.find_one({"time": sensing.time}):
-        raise HTTPException(status_code=400, detail="Sensing already exists")
-    sensing_dict = sensing.dict(by_alias=True)
-    await db.sensingTable.insert_one(sensing_dict)
-    return {"message": "Sensing added successfully"}
-
-@app.get("/commands/")
-async def get_commands():
-    commands = await db.commandTable.find().to_list(1000)
+@app.get("/agvcommands/")
+async def get_agv_commands():
+    commands = await db.agvCommandTable.find().to_list(1000)
     commands = [fix_id(command) for command in commands]
     return commands
 
-@app.get("/sengsings/")
-async def get_sengsings():
-    sengsings = await db.sensingTable.find().to_list(1000)
-    sengsings = [fix_id(sensing) for sensing in sengsings]
-    return sengsings
-
-@app.get("/command/{time}")
-async def get_command_by_time(time: datetime):
-    command = await db.commandTable.find_one({"time": time})
+@app.get("/agvcommand/{time}")
+async def get_agv_command_by_time(time: datetime):
+    command = await db.agvCommandTable.find_one({"time": time})
     if command:
         return fix_id(command)
     else:
         raise HTTPException(status_code=404, detail="Command not found")
-
-@app.get("/sengsing/{time}")
-async def get_sengsing_by_time(time: datetime):
-    sensing = await db.sensingTable.find_one({"time": time})
-    if sensing:
-        return fix_id(sensing)
-    else:
-        raise HTTPException(status_code=404, detail="Sensing not found")
